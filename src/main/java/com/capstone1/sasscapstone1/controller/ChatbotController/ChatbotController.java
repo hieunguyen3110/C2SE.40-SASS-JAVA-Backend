@@ -1,10 +1,12 @@
 package com.capstone1.sasscapstone1.controller.ChatbotController;
 
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.request.SendMessageRequest;
 import com.capstone1.sasscapstone1.service.ChatbotService.ChatbotService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,16 +22,16 @@ public class ChatbotController {
     private final ChatbotService chatbotService;
 
     @PostMapping("/send-message")
-    public ResponseEntity<?> sendMessage(@RequestBody SendMessageRequest request){
+    public ApiResponse<?> sendMessage(@RequestBody SendMessageRequest request){
         try{
             Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
             if(!(authentication instanceof AnonymousAuthenticationToken)){
                 return chatbotService.sendMessage(request);
             }else{
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You must login");
+                return CreateApiResponse.createResponse("You must login",false);
             }
         }catch (Exception e){
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+            throw new ApiException(ErrorCode.INTERNAL_SERVER_ERROR.getStatusCode().value(), e.getMessage());
         }
     }
 }

@@ -2,15 +2,15 @@ package com.capstone1.sasscapstone1.service.UserUpdateProfileService;
 
 import com.capstone1.sasscapstone1.dto.UpdateUserProfileRequestDto.UpdateUserProfileRequest;
 import com.capstone1.sasscapstone1.dto.UserProfileResponseDTO.UserProfileResponse;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.exception.UserUpdateProfileException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
-import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import com.capstone1.sasscapstone1.service.FirebaseService.FirebaseService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import com.capstone1.sasscapstone1.util.UserProfileUtils;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,14 +26,12 @@ import java.util.concurrent.ExecutionException;
 public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
 
     private final AccountRepository accountRepository;
-    private final FacultyRepository facultyRepository;
     private final FirebaseService firebaseService;
-    private final EntityManager entityManager;
     private final UserProfileUtils userProfileUtils;
 
     @Override
     @Transactional
-    public ResponseEntity<?> updateUserProfile(Account account, UpdateUserProfileRequest request, MultipartFile profilePicture) {
+    public ApiResponse<UserProfileResponse> updateUserProfile(Account account, UpdateUserProfileRequest request, MultipartFile profilePicture) {
         try {
             // Cập nhật thông tin cá nhân
             userProfileUtils.updatePersonalInfo(account, request);
@@ -53,9 +51,9 @@ public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
 
             // Lưu tài khoản sau khi cập nhật
             Account updatedAccount = accountRepository.save(account);
-            return ResponseEntity.ok(userProfileUtils.mapToUserProfileResponse(updatedAccount, null, null));
-        } catch (UserUpdateProfileException e) {
-            throw new RuntimeException("Update failed: " + e.getMessage(), e);
+            return CreateApiResponse.createResponse(userProfileUtils.mapToUserProfileResponse(updatedAccount, null, null),false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Update failed: " + e.getMessage());
         } catch (RuntimeException e) {
             throw new RuntimeException("Unexpected error during profile update: " + e.getMessage(), e);
         } catch (Exception e) {
@@ -67,7 +65,7 @@ public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
         try {
             String originalFileName = profilePicture.getOriginalFilename();
             if (originalFileName == null || originalFileName.isBlank()) {
-                throw new UserUpdateProfileException("Invalid file name.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Invalid file name.");
             }
 
             BufferedImage bufferedImage = ImageIO.read(profilePicture.getInputStream());
@@ -77,11 +75,11 @@ public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
             return profilePictureUrl;
 
         } catch (IOException e) {
-            throw new UserUpdateProfileException("Error processing profile picture: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error processing profile picture: " + e.getMessage());
 
         } catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
-            throw new UserUpdateProfileException("Error uploading profile picture: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error uploading profile picture: " + e.getMessage());
         }
     }
 
@@ -91,12 +89,12 @@ public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
         try {
             // Tìm tài khoản
             Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new UserUpdateProfileException("User not found with ID: " + accountId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"User not found with ID: " + accountId));
 
             // Kiểm tra xem có ảnh đại diện không
             String profilePictureUrl = account.getProfilePicture();
             if (profilePictureUrl == null || profilePictureUrl.isBlank()) {
-                throw new UserUpdateProfileException("No profile picture to delete.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"No profile picture to delete.");
             }
 
             // Xóa ảnh trên Firebase
@@ -106,8 +104,8 @@ public class UserUpdateProfileServiceImpl implements UserUpdateProfileService {
             account.setProfilePicture(null);
             accountRepository.save(account);
 
-        } catch (UserUpdateProfileException e) {
-            throw new RuntimeException("Error deleting profile picture: " + e.getMessage(), e);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Error deleting profile picture: " + e.getMessage());
 
         } catch (Exception e) {
             throw new RuntimeException("Unexpected error while deleting profile picture: " + e.getMessage(), e);

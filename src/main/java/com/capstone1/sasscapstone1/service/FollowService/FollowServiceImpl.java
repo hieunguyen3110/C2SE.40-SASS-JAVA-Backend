@@ -1,15 +1,16 @@
 package com.capstone1.sasscapstone1.service.FollowService;
 
 import com.capstone1.sasscapstone1.dto.FollowDto.FollowDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
 import com.capstone1.sasscapstone1.entity.Follow;
-import com.capstone1.sasscapstone1.exception.FollowException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
 import com.capstone1.sasscapstone1.repository.Follow.FollowRepository;
 import com.capstone1.sasscapstone1.service.KafkaService.KafkaService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,15 +29,15 @@ public class FollowServiceImpl implements FollowService {
     private KafkaService kafkaService;
 
     @Override
-    public ResponseEntity<String> followUserByEmail(String email, Account account) {
+    public ApiResponse<String> followUserByEmail(String email, Account account) throws Exception {
         try {
             // Kiểm tra người dùng cần follow có tồn tại không
             Account accountToFollow = accountRepository.findAccountByEmail(email)
-                    .orElseThrow(() -> new FollowException("User with email " + email + " not found"));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"User with email " + email + " not found"));
 
             // Kiểm tra người dùng có thể không tự follow chính mình
             if (Long.valueOf(account.getAccountId()).equals(accountToFollow.getAccountId())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("You cannot follow yourself.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"You cannot follow yourself.");
             }
 
             // Tạo bản ghi follow
@@ -48,48 +49,48 @@ public class FollowServiceImpl implements FollowService {
 
             kafkaService.sendNotificationFromUserFollowing(accountToFollow, account.getLastName());
 
-            return ResponseEntity.ok("You are now following " + accountToFollow.getEmail());
-        } catch (FollowException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error following user: " + e.getMessage());
+            return CreateApiResponse.createResponse("You are now following " + accountToFollow.getEmail(),false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+            throw new Exception(e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public ResponseEntity<String> unfollowUserByEmail(String email, Account account) {
+    public ApiResponse<String> unfollowUserByEmail(String email, Account account) throws Exception {
         try {
             // Kiểm tra người dùng cần unfollow có tồn tại không
             Account accountToUnfollow = accountRepository.findAccountByEmail(email)
-                    .orElseThrow(() -> new FollowException("User with email " + email + " not found"));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"User with email " + email + " not found"));
 
             // Kiểm tra người dùng có thể không tự unfollow chính mình
             if (Long.valueOf(account.getAccountId()).equals(accountToUnfollow.getAccountId())) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("You cannot unfollow yourself.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"You cannot unfollow yourself.");
             }
 
             // Xóa bản ghi follow
             Follow follow = followRepository.findByFollowerAndFollowing(account, accountToUnfollow)
-                    .orElseThrow(() -> new FollowException("Follow relationship not found"));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Follow relationship not found"));
 
             followRepository.delete(follow);
 
-            return ResponseEntity.ok("You have unfollowed " + accountToUnfollow.getEmail());
-        } catch (FollowException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Error unfollowing user: " + e.getMessage());
+            return CreateApiResponse.createResponse("You have unfollowed " + accountToUnfollow.getEmail(),false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+            throw new Exception(e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<List<FollowDto>> getFollowers(Account account) {
+    public ApiResponse<List<FollowDto>> getFollowers(Account account) throws Exception {
         try {
             // Lấy danh sách các followers của người dùng
             List<Follow> followers = followRepository.findByFollowing(account);
             if (followers.isEmpty()) {
-                throw new FollowException("No followers found for this user.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"No followers found for this user.");
             }
 
             // Ánh xạ danh sách Follow sang FollowDto
@@ -103,20 +104,20 @@ public class FollowServiceImpl implements FollowService {
                 return dto;
             }).toList();
 
-            return ResponseEntity.ok(followerDtos);
-        } catch (FollowException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return CreateApiResponse.createResponse(followerDtos,false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            throw new Exception(e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<List<FollowDto>> getFollowing(Account account) {
+    public ApiResponse<List<FollowDto>> getFollowing(Account account) throws Exception {
         try {
             List<Follow> followings = followRepository.findByFollower(account);
             if (followings.isEmpty()) {
-                throw new FollowException("You are not following anyone.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"You are not following anyone.");
             }
 
             // Map Follow entity to FollowDto
@@ -130,11 +131,11 @@ public class FollowServiceImpl implements FollowService {
                 return dto;
             }).toList();
 
-            return ResponseEntity.ok(followingDtos);
-        } catch (FollowException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+            return CreateApiResponse.createResponse(followingDtos,false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+            throw new Exception(e.getMessage());
         }
     }
 }

@@ -1,20 +1,21 @@
 package com.capstone1.sasscapstone1.service.DocumentSearchService;
 
 import com.capstone1.sasscapstone1.dto.DocumentDetailDto.DocumentDetailDto;
-import com.capstone1.sasscapstone1.dto.DocumentDto.DocumentDto;
 import com.capstone1.sasscapstone1.dto.DocumentSearchDto.DocumentSearchDto;
 import com.capstone1.sasscapstone1.dto.FacultyDto.FacultyDto;
 import com.capstone1.sasscapstone1.dto.SubjectDto.SubjectDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.entity.Faculty;
 import com.capstone1.sasscapstone1.entity.Folder;
 import com.capstone1.sasscapstone1.entity.Subject;
-import com.capstone1.sasscapstone1.exception.DocumentSearchException;
-import com.capstone1.sasscapstone1.exception.FolderException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import com.capstone1.sasscapstone1.repository.Folder.FolderRepository;
 import com.capstone1.sasscapstone1.repository.Subject.SubjectRepository;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -57,20 +58,20 @@ public class DocumentSearchServiceImpl implements DocumentSearchService {
     }
 
     @Override
-    public ResponseEntity<List<DocumentSearchDto>>  searchDocByTitle(String title) {
+    public ApiResponse<List<DocumentSearchDto>> searchDocByTitle(String title) {
         try {
             List<Documents> documents = documentsRepository.findByTitleContainingIgnoreCaseAndIsActiveIsTrue(title);
             List<DocumentSearchDto> dtos = documents.stream()
                     .map(this::mapToDto)
                     .collect(Collectors.toList());
-            return ResponseEntity.ok(dtos);
+            return CreateApiResponse.createResponse(dtos,false);
         } catch (Exception e) {
-            throw new DocumentSearchException("Error searching documents by title: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error searching documents by title: " + e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> searchBySubject(String subjectName) {
+    public ApiResponse<List<SubjectDto>> searchBySubject(String subjectName) {
         try {
             List<Subject> subjects = subjectRepository.findAllBySubjectNameContainingIgnoreCase(subjectName.toUpperCase());
             List<SubjectDto> subjectDtos = new ArrayList<>();
@@ -81,14 +82,14 @@ public class DocumentSearchServiceImpl implements DocumentSearchService {
                         .build();
                 subjectDtos.add(subjectDto);
             }
-            return ResponseEntity.status(HttpStatus.OK).body(subjectDtos);
+            return CreateApiResponse.createResponse(subjectDtos,false);
         } catch (Exception e) {
-            throw new DocumentSearchException("Error searching subject by subject name: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error searching subject by subject name: " + e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> searchByFacultyName(String facultyName) {
+    public ApiResponse<List<FacultyDto>> searchByFacultyName(String facultyName) {
         try {
             List<Faculty> faculties = facultyRepository.findAllByFacultyNameContainingIgnoreCase(facultyName.toUpperCase());
             List<FacultyDto> facultyDtos = new ArrayList<>();
@@ -99,50 +100,50 @@ public class DocumentSearchServiceImpl implements DocumentSearchService {
                         .build();
                 facultyDtos.add(facultyDto);
             }
-            return ResponseEntity.status(HttpStatus.OK).body(facultyDtos);
+            return CreateApiResponse.createResponse(facultyDtos,false);
         } catch (Exception e) {
-            throw new DocumentSearchException("Error searching documents by faculty name: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error searching documents by faculty name: " + e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<List<DocumentSearchDto>> searchDocBySubject(String subject) {
+    public ApiResponse<List<DocumentSearchDto>> searchDocBySubject(String subject) {
         List<Documents> documents = documentsRepository.findBySubject_SubjectNameContainingIgnoreCaseAndIsActiveIsTrue(subject);
         List<DocumentSearchDto> dtos = documents.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+        return CreateApiResponse.createResponse(dtos,false);
     }
 
     @Override
-    public ResponseEntity<List<DocumentSearchDto>> searchDocByFolderName(String folderName) {
+    public ApiResponse<List<DocumentSearchDto>> searchDocByFolderName(String folderName) {
         List<Documents> documents = documentsRepository.findByFolderName(folderName);
         List<DocumentSearchDto> dtos = documents.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+        return CreateApiResponse.createResponse(dtos,false);
     }
 
     @Override
-    public ResponseEntity<List<DocumentSearchDto>> searchDocByFacultyName(String facultyName) {
+    public ApiResponse<List<DocumentSearchDto>> searchDocByFacultyName(String facultyName) {
         List<Documents> documents = documentsRepository.findByFacultyName(facultyName);
         List<DocumentSearchDto> dtos = documents.stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
+        return CreateApiResponse.createResponse(dtos,false);
     }
 
     @Override
-    public ResponseEntity<Page<DocumentDetailDto>> searchDocumentsInFolder(Long folderId, Long userId, String keyword, int page, int size) {
+    public ApiResponse<Page<DocumentDetailDto>> searchDocumentsInFolder(Long folderId, Long userId, String keyword, int page, int size) {
         try {
             Pageable pageable = PageRequest.of(page, size);
 
             // Check if the folder belongs to the user
             Folder folder = folderRepository.findById(folderId)
-                    .orElseThrow(() -> new FolderException("Folder not found with ID: " + folderId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not found with ID: " + folderId));
 
             if (!Long.valueOf(folder.getAccount().getAccountId()).equals(userId)) {
-                throw new FolderException("Folder does not belong to the user.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder does not belong to the user.");
             }
 
             // Search documents in the folder
@@ -150,7 +151,7 @@ public class DocumentSearchServiceImpl implements DocumentSearchService {
                     ? documentsRepository.findByFolder_FolderIdAndTitleContainingIgnoreCaseAndIsActiveIsTrue(folderId, keyword, pageable)
                     : documentsRepository.findByFolder_FolderIdAndIsActiveIsTrue(folderId, pageable);
 
-            return ResponseEntity.ok(documentsPage.map(this::mapDocumentToDto));
+            return CreateApiResponse.createResponse(documentsPage.map(this::mapDocumentToDto),false);
 
         } catch (Exception e) {
             throw new RuntimeException("Error searching documents in folder: " + e.getMessage(), e);

@@ -1,15 +1,15 @@
 package com.capstone1.sasscapstone1.service.ChatbotService;
 
 import com.capstone1.sasscapstone1.dto.ChatbotDTO.ChatbotResponse;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.request.SendMessageRequest;
-import com.capstone1.sasscapstone1.request.TrainDocumentRequest;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -26,7 +26,7 @@ public class ChatbotServiceImpl implements ChatbotService{
     private final DocumentsRepository documentsRepository;
 
     @Override
-    public ResponseEntity<?> sendMessage(SendMessageRequest request) throws Exception {
+    public ApiResponse<ChatbotResponse> sendMessage(SendMessageRequest request) throws Exception {
         try{
             HttpHeaders httpHeaders= new HttpHeaders();
             httpHeaders.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
@@ -55,7 +55,7 @@ public class ChatbotServiceImpl implements ChatbotService{
                     result.setDocId(getDoc.getDocId());
                 }
             }
-            return ResponseEntity.status(200).body(result);
+            return CreateApiResponse.createResponse(result,false);
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }

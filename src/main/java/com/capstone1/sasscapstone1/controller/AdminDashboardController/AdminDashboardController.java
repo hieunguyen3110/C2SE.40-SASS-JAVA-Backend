@@ -3,17 +3,19 @@ package com.capstone1.sasscapstone1.controller.AdminDashboardController;
 import com.capstone1.sasscapstone1.dto.AdminDashboardStatsDto.StatsDto;
 import com.capstone1.sasscapstone1.dto.AdminDocumentDto.AdminDocumentDto;
 import com.capstone1.sasscapstone1.dto.DocumentListDto.DocumentListDto;
-import com.capstone1.sasscapstone1.dto.UpdateUserProfileRequestDto.UpdateUserProfileRequest;
 import com.capstone1.sasscapstone1.dto.UserListDto.UserListDto;
 import com.capstone1.sasscapstone1.dto.UserProfileResponseDTO.UserProfileResponse;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.exception.DocumentException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.request.TrainDocumentRequest;
 import com.capstone1.sasscapstone1.service.AdminDashboardService.AdminDashboardService;
 import com.capstone1.sasscapstone1.service.AdminUserManagementService.AdminUserManagementService;
 import com.capstone1.sasscapstone1.service.DocumentCheckService.DocumentCheckService;
 import com.capstone1.sasscapstone1.service.DocumentManagementService.DocumentManagementService;
 import com.capstone1.sasscapstone1.service.DocumentService.DocumentService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -22,7 +24,6 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -50,44 +51,43 @@ public class AdminDashboardController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<StatsDto> getDashboardStats() {
+    public ApiResponse<StatsDto> getDashboardStats() {
         StatsDto stats = dashboardService.getDashboardStats();
-        return ResponseEntity.ok(stats);
+        return CreateApiResponse.createResponse(stats,false);
     }
 
     // List users
     @GetMapping("/users")
-    public ResponseEntity<Page<UserListDto>> listUsers(@RequestParam(defaultValue = "0") int page,
+    public ApiResponse<Page<UserListDto>> listUsers(@RequestParam(defaultValue = "0") int page,
                                                        @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(userManagementService.listUsers(page, size));
+        return CreateApiResponse.createResponse(userManagementService.listUsers(page, size),false);
     }
 
     // User details
     @GetMapping("/users/{accountId}")
-    public ResponseEntity<UserProfileResponse> getUserDetails(@PathVariable Long accountId) {
-        return ResponseEntity.ok(userManagementService.getUserDetails(accountId));
+    public ApiResponse<UserProfileResponse> getUserDetails(@PathVariable Long accountId) {
+        return CreateApiResponse.createResponse(userManagementService.getUserDetails(accountId),false);
     }
 
     // Delete users
     @DeleteMapping("/delete-users")
-    public ResponseEntity<String> softDeleteUsers(@RequestBody List<Long> accountIds) {
+    public ApiResponse<String> softDeleteUsers(@RequestBody List<Long> accountIds) {
         try {
             userManagementService.softDeleteAccounts(accountIds);
-            return ResponseEntity.ok("Accounts successfully soft-deleted.");
+            return CreateApiResponse.createResponse("Accounts successfully soft-deleted.",false);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error soft-deleting accounts: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),e.getMessage());
         }
     }
 
     // Approve users
     @PostMapping("/users/approve")
-    public ResponseEntity<String> approveNewUsers(@RequestBody List<Long> accountIds) {
+    public ApiResponse<String> approveNewUsers(@RequestBody List<Long> accountIds) {
         return userManagementService.approveNewUsers(accountIds);
     }
 
     @DeleteMapping("/delete-profile-picture")
-    public ResponseEntity<?> adminDeleteUserProfilePicture(@RequestParam Long accountId) {
+    public ApiResponse<String> adminDeleteUserProfilePicture(@RequestParam Long accountId) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -95,40 +95,38 @@ public class AdminDashboardController {
             try {
                 return adminUserManagementService.adminDeleteUserProfilePicture(accountId);
             } catch (Exception e) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body("Error updating profile: " + e.getMessage());
+                throw new ApiException(ErrorCode.INTERNAL_SERVER_ERROR.getStatusCode().value(),e.getMessage());
             }
         } else {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     @GetMapping("/documents")
-    public ResponseEntity<Page<DocumentListDto>> listDocuments(@RequestParam(defaultValue = "0") int page,
+    public ApiResponse<Page<DocumentListDto>> listDocuments(@RequestParam(defaultValue = "0") int page,
                                                                @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(documentManagementService.listDocuments(page, size));
+        return CreateApiResponse.createResponse(documentManagementService.listDocuments(page, size),false);
     }
 
     @GetMapping("/documents/search")
-    public ResponseEntity<Page<DocumentListDto>> searchDocuments(@RequestParam String keyword,
+    public ApiResponse<Page<DocumentListDto>> searchDocuments(@RequestParam String keyword,
                                                                  @RequestParam(defaultValue = "0") int page,
                                                                  @RequestParam(defaultValue = "10") int size) {
-        return ResponseEntity.ok(documentManagementService.searchDocuments(keyword, page, size));
+        return CreateApiResponse.createResponse(documentManagementService.searchDocuments(keyword, page, size),false);
     }
 
     @DeleteMapping("/documents")
-    public ResponseEntity<String> softDeleteDocuments(@RequestBody List<Long> docIds) {
+    public ApiResponse<String> softDeleteDocuments(@RequestBody List<Long> docIds) {
         documentManagementService.softDeleteDocuments(docIds);
-        return ResponseEntity.ok("Documents deleted successfully.");
+        return CreateApiResponse.createResponse("Documents deleted successfully.",false);
     }
 
     @PostMapping("/documents/approve")
-    public ResponseEntity<?> approveDocuments(@RequestBody List<Long> docIds) {
+    public ApiResponse<?> approveDocuments(@RequestBody List<Long> docIds) {
         // Lấy thông tin đăng nhập từ SecurityContext
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof AnonymousAuthenticationToken) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
 
         // Lấy email của admin từ thông tin đăng nhập
@@ -139,11 +137,11 @@ public class AdminDashboardController {
             // Gọi service để duyệt danh sách tài liệu và lấy tên admin
             documentManagementService.approveDocuments(docIds, adminApprove);
 
-            return ResponseEntity.ok("Documents approved successfully.");
-        } catch (DocumentException ex) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+            return CreateApiResponse.createResponse("Documents approved successfully.",false);
+        } catch (ApiException ex) {
+            throw new ApiException(ex.getCode(),ex.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+            throw new ApiException(ErrorCode.INTERNAL_SERVER_ERROR.getStatusCode().value(),"An unexpected error occurred: " + e.getMessage());
         }
     }
 
@@ -159,8 +157,8 @@ public class AdminDashboardController {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You must login to access");
             }
 
-        } catch (DocumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error checking document: " + e.getMessage());
         }

@@ -2,14 +2,13 @@ package com.capstone1.sasscapstone1.service.AuthenticationService;
 
 import com.capstone1.sasscapstone1.dto.AccountStatisticsDto.AccountStatisticsDto;
 import com.capstone1.sasscapstone1.dto.LoginDto.LoginDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
 import com.capstone1.sasscapstone1.entity.BlackList;
 import com.capstone1.sasscapstone1.entity.Role;
 import com.capstone1.sasscapstone1.entity.WhiteList;
-import com.capstone1.sasscapstone1.exception.ChangePasswordException;
-import com.capstone1.sasscapstone1.exception.LoginException;
-import com.capstone1.sasscapstone1.exception.RefreshTokenException;
-import com.capstone1.sasscapstone1.exception.RegisterException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
 import com.capstone1.sasscapstone1.repository.BlackList.BlackListRepository;
 import com.capstone1.sasscapstone1.repository.Role.RoleRepository;
@@ -17,6 +16,7 @@ import com.capstone1.sasscapstone1.repository.WhiteList.WhiteListRepository;
 import com.capstone1.sasscapstone1.request.*;
 import com.capstone1.sasscapstone1.service.JwtService.JwtService;
 import com.capstone1.sasscapstone1.util.CookieUtils;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.Cookie;
@@ -62,7 +62,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         return existEmail.isPresent();
     }
     @Override
-    public ResponseEntity<?> login(LoginRequest loginRequest, HttpServletResponse response) throws Exception {
+    public ApiResponse<LoginDto> login(LoginRequest loginRequest, HttpServletResponse response) throws Exception {
         try{
             Authentication authentication= authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getEmail().toLowerCase(),loginRequest.getPassword()));
             if(!(authentication.getPrincipal() instanceof AnonymousAuthenticationToken)){
@@ -85,26 +85,26 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 if(!roles.contains("ROLE_ADMIN")){
                     getAccountStatisticsDto= accountRepository.getAccountStatistics(account.getAccountId());
                 }
-                return ResponseEntity.status(HttpStatus.OK).body(LoginDto.builder()
-                                .accountId(account.getAccountId())
-                                .accessToken(accessToken)
-                                .refreshToken(refreshToken)
-                                .listRoles(roles)
-                                .username(account.getFirstName()+" "+account.getLastName())
-                                .accountId(account.getAccountId())
-                                .profilePicture(account.getProfilePicture())
-                                .follower(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowers()) : 0)
-                                .following(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowing()) : 0)
-                                .upload(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalUploadedDocuments()) : 0)
-                                .build()
-                );
+                return CreateApiResponse.createResponse(LoginDto.builder()
+                        .accountId(account.getAccountId())
+                        .accessToken(accessToken)
+                        .refreshToken(refreshToken)
+                        .listRoles(roles)
+                        .username(account.getFirstName()+" "+account.getLastName())
+                        .accountId(account.getAccountId())
+                        .profilePicture(account.getProfilePicture())
+                        .follower(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowers()) : 0)
+                        .following(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowing()) : 0)
+                        .upload(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalUploadedDocuments()) : 0)
+                        .build()
+                        ,false);
             }else{
-                throw new LoginException("Email or password incorrect");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Email or password incorrect");
             }
         }catch (BadCredentialsException e){
-            throw new LoginException(400,"Email or password incorrect");
-        }catch (LoginException e){
-            throw new LoginException(400,e.getMessage());
+            throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Email or password incorrect");
+        }catch (ApiException e){
+            throw new ApiException(e.getCode(),e.getMessage());
         }
         catch (Exception e){
             throw new Exception(e.getMessage());
@@ -112,13 +112,13 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ResponseEntity<?> autoLogin(HttpServletRequest request) throws Exception {
+    public ApiResponse<LoginDto> autoLogin(HttpServletRequest request) throws Exception {
         try{
             Cookie[] cookies= request.getCookies();
             String accessToken = null;
             String refreshToken= null;
             if(cookies==null){
-                throw new LoginException("Token isn't valid");
+                throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"Token isn't valid");
             }
             for(Cookie cookie : cookies){
                 if (cookie.getName().equals("accessToken")) {
@@ -128,7 +128,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 }
             }
             if (accessToken==null){
-                throw new LoginException("Access token is expires");
+                throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"Access token is expires");
             }
             Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
             if(!(authentication instanceof AnonymousAuthenticationToken)){
@@ -138,7 +138,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 if(!roles.contains("ROLE_ADMIN")){
                     getAccountStatisticsDto= accountRepository.getAccountStatistics(loadUser.getAccountId());
                 }
-                return ResponseEntity.status(HttpStatus.OK).body(LoginDto.builder()
+                return CreateApiResponse.createResponse(LoginDto.builder()
                         .accountId(loadUser.getAccountId())
                         .accessToken(accessToken)
                         .refreshToken(refreshToken)
@@ -149,24 +149,24 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         .follower(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowers()) : 0)
                         .following(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalFollowing()) : 0)
                         .upload(getAccountStatisticsDto != null ? Math.toIntExact(getAccountStatisticsDto.getTotalUploadedDocuments()) : 0)
-                        .build());
+                        .build(),false);
             }else{
-                throw new LoginException("Token isn't valid");
+                throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"Token isn't valid");
             }
-        }catch (LoginException e){
-            throw new LoginException(403, e.getMessage());
+        }catch (ApiException e){
+            throw new ApiException(e.getCode(), e.getMessage());
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> refreshToken(HttpServletRequest request ,HttpServletResponse response) throws Exception {
+    public ApiResponse<String> refreshToken(HttpServletRequest request ,HttpServletResponse response) throws Exception {
         Cookie[] cookies= request.getCookies();
         String refreshToken = null;
         try{
             if(cookies==null){
-                throw new RefreshTokenException(401,"refresh token is not found");
+                throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(),"refresh token is not found");
             }
             for(Cookie cookie : cookies){
                 if (cookie.getName().equals("refreshToken")){
@@ -175,11 +175,11 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 }
             }
             if(refreshToken == null){
-                throw new RefreshTokenException(401,"refresh token is not found");
+                throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(),"refresh token is not found");
             }
             Optional<BlackList> checkTokenInBlackList= blackListRepository.findBlackListsByToken(refreshToken);
             if (checkTokenInBlackList.isPresent()){
-                throw new RefreshTokenException(401,"Token is disable");
+                throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(),"Token is disable");
             }
             String userName= jwtService.ExtractUsername(refreshToken);
             if(userName != null){
@@ -191,25 +191,25 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         if(findToken.get().getExpirationToken().isAfter(LocalDateTime.now())){
                             String newAccessToken= jwtService.GenerateAccessToken(account);
                             cookieUtils.generatorTokenCookie(response,newAccessToken,refreshToken);
-                            return ResponseEntity.status(HttpStatus.OK).body("Refresh token success");
+                            return CreateApiResponse.createResponse("Refresh token success",false);
                         }else{
                             BlackList blackListSave= BlackList.builder()
                                     .token(findToken.get().getToken())
                                     .build();
                             blackListRepository.save(blackListSave);
                             whiteListRepository.delete(findToken.get());
-                            throw new RefreshTokenException(401, "Refresh token is expires");
+                            throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(), "Refresh token is expires");
                         }
                     }else{
-                        throw new RefreshTokenException(400, "Refresh token not valid");
+                        throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(), "Refresh token not valid");
                     }
                 }else{
-                    throw new RefreshTokenException(400, "Refresh token not valid");
+                    throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(), "Refresh token not valid");
                 }
             }
-            throw new RefreshTokenException(401, "Refresh token is expires");
-        }catch (RefreshTokenException e){
-            throw new RefreshTokenException(e.getCode(), e.getMessage());
+            throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(), "Refresh token is expires");
+        }catch (ApiException e){
+            throw new ApiException(e.getCode(), e.getMessage());
         }catch (ExpiredJwtException e){
             cookieUtils.generatorTokenCookie(response,null,null);
             BlackList blackListSave= BlackList.builder()
@@ -218,19 +218,19 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             blackListRepository.save(blackListSave);
             Optional<WhiteList> findToken= whiteListRepository.findWhiteListByToken(refreshToken);
             findToken.ifPresent(whiteListRepository::delete);
-            throw new RefreshTokenException(401, "Refresh token is expires");
+            throw new ApiException(ErrorCode.UNAUTHORIZED.getStatusCode().value(), "Refresh token is expires");
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> logout(HttpServletRequest request, HttpServletResponse response) throws Exception {
+    public ApiResponse<String> logout(HttpServletRequest request, HttpServletResponse response) throws Exception {
         try{
             Cookie[] cookies= request.getCookies();
             String refreshToken= null;
             if(cookies ==null){
-                return ResponseEntity.status(HttpStatus.OK).body("Logout success");
+                return CreateApiResponse.createResponse("Logout success",false);
             }
             for(Cookie cookie : cookies){
                 if (cookie.getName().equals("refreshToken")){
@@ -239,7 +239,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 }
             }
             if(refreshToken == null){
-                return ResponseEntity.status(HttpStatus.OK).body("Logout success");
+                return CreateApiResponse.createResponse("Logout success",false);
             }
             Optional<WhiteList> isToken= whiteListRepository.findWhiteListByToken(refreshToken);
             isToken.ifPresent(whiteListRepository::delete);
@@ -248,7 +248,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .build();
             blackListRepository.save(blackListSave);
             cookieUtils.generatorTokenCookie(response,null,null);
-            return ResponseEntity.status(HttpStatus.OK).body("Logout success");
+            return CreateApiResponse.createResponse("Logout success",false);
 
         }catch (Exception e){
             throw new Exception(e.getMessage());
@@ -256,10 +256,10 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ResponseEntity<?> register(RegisterRequest registerRequest) throws Exception {
+    public ApiResponse<String> register(RegisterRequest registerRequest) throws Exception {
         try{
             if(checkExistEmail(registerRequest.getEmail())){
-                throw new RegisterException("Email is exist");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Email is exist");
             }
             Role role= roleRepository.findRoleByName(registerRequest.getRoleName());
             if(role==null){
@@ -272,15 +272,15 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     .isActive(false)
                     .build();
             accountRepository.save(account);
-            return ResponseEntity.status(HttpStatus.CREATED).body("Register account is successful");
-        }catch (RegisterException ex){
-            throw new RegisterException(ex.getCode(),ex.getMessage());
+            return CreateApiResponse.createResponse("Register account is successful",true);
+        }catch (ApiException ex){
+            throw new ApiException(ex.getCode(),ex.getMessage());
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }
     }
     @Override
-    public ResponseEntity<?> validateResetPassword(SendOTPRequest request) throws Exception {
+    public ApiResponse<String> validateResetPassword(SendOTPRequest request) throws Exception {
         try{
             Account account= (Account) userDetailsService.loadUserByUsername(request.getEmail().toLowerCase());
             if(request.getOtp() != null){
@@ -290,7 +290,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                         .expirationToken(LocalDateTime.now().plusMinutes(5))
                         .build();
                 whiteListRepository.save(whiteList);
-                return ResponseEntity.status(HttpStatus.OK).body("Send request reset password success");
+                return CreateApiResponse.createResponse("Send request reset password success",false);
             }else{
                 throw new Exception("Code isn't valid");
             }
@@ -300,19 +300,19 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
     @Override
     @Transactional
-    public ResponseEntity<?> resetPassword(ResetPasswordRequest request) throws Exception {
+    public ApiResponse<String> resetPassword(ResetPasswordRequest request) throws Exception {
         try{
             Optional<WhiteList> findToken= whiteListRepository.findWhiteListByToken(request.getOtp());
             if(findToken.isPresent() && findToken.get().getExpirationToken().isAfter(LocalDateTime.now())){
-                Account findAccount = accountRepository.findAccountByEmail(request.getEmail().toLowerCase()).orElseThrow(()->new RuntimeException("Account not found"));
+                Account findAccount = accountRepository.findAccountByEmail(request.getEmail().toLowerCase()).orElseThrow(()->new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Account not found"));
                 findAccount.setPassword(passwordEncoder.encode(request.getPassword()));
                 accountRepository.save(findAccount);
                 BlackList blackList= BlackList.builder().token(findToken.get().getToken()).build();
                 blackListRepository.save(blackList);
                 whiteListRepository.delete(findToken.get());
-                return ResponseEntity.status(HttpStatus.OK).body("Reset password is success");
+                return CreateApiResponse.createResponse("Reset password is success",false);
             }else{
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("token isn't valid");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"token isn't valid");
             }
         }catch (Exception e){
             throw new Exception(e.getMessage());
@@ -321,16 +321,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> clearToken(ClearTokenRequest request) throws Exception {
+    public ApiResponse<String> clearToken(ClearTokenRequest request) throws Exception {
         try{
             Optional<WhiteList> findToken= whiteListRepository.findWhiteListByToken(request.getOtp());
             if(findToken.isPresent()){
                 BlackList blackList= BlackList.builder().token(findToken.get().getToken()).build();
                 blackListRepository.save(blackList);
                 whiteListRepository.delete(findToken.get());
-                return ResponseEntity.status(HttpStatus.OK).body("Clear token is success");
+                return CreateApiResponse.createResponse("Clear token is success",false);
             }else{
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("token isn't valid");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"token isn't valid");
             }
         }catch (Exception e){
             throw new Exception(e.getMessage());
@@ -338,7 +338,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
     }
 
     @Override
-    public ResponseEntity<?> allowActiveAccount(String email) throws Exception {
+    public ApiResponse<String> allowActiveAccount(String email) throws Exception {
         try{
             Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
             if(!(authentication instanceof AnonymousAuthenticationToken)){
@@ -347,12 +347,12 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     Account account= findAccount.get();
                     account.setIsActive(true);
                     accountRepository.save(account);
-                    return ResponseEntity.status(HttpStatus.OK).body("Update account successful");
+                    return CreateApiResponse.createResponse("Update account successful",false);
                 }else{
-                    return ResponseEntity.status(HttpStatus.OK).body("Account not found by email: "+email);
+                    throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Account not found by email: "+email);
                 }
             }else{
-                throw new LoginException(403,"Account not allowed");
+                throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"Account not allowed");
             }
         }catch (Exception e){
             throw new Exception(e.getMessage());
@@ -361,31 +361,21 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
     @Override
     @Transactional
-    public ResponseEntity<?> changePassword(ChangePasswordRequest request, Account account) throws Exception {
+    public ApiResponse<String> changePassword(ChangePasswordRequest request, Account account) throws Exception {
         try{
             if(request.getNewPassword()==null || request.getOldPassword()==null){
-                throw new ChangePasswordException("Missing required parameter");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Missing required parameter");
             }
             if(passwordEncoder.matches(request.getOldPassword(),account.getPassword())){
                 Account entityAccount= entityManager.merge(account);
                 entityAccount.setPassword(passwordEncoder.encode(request.getNewPassword()));
                 accountRepository.save(entityAccount);
-                return ResponseEntity.status(HttpStatus.OK).body("Change password successful");
+                return CreateApiResponse.createResponse("Change password successful",false);
             }else{
                 throw new Exception("Old password incorrect");
             }
         }catch (Exception e){
             throw new Exception(e.getMessage());
         }
-    }
-
-    @Override
-    public Account getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof UserDetails userDetails) {
-            // Assuming the UserDetails is of type Account
-            return (Account) userDetails;
-        }
-        return null; // Return null if no authentication information available
     }
 }

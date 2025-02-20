@@ -1,40 +1,37 @@
 package com.capstone1.sasscapstone1.controller.TagController;
 
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Tags;
 import com.capstone1.sasscapstone1.service.TagService.TagService;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.ResponseEntity;
-
 import java.util.List;
 
 @RestController
 @RequestMapping("/tags")
+@RequiredArgsConstructor
 public class TagController {
-
-    @Autowired
-    private TagService tagService;
+    private final TagService tagService;
 
     @PostMapping("/create")
-    public ResponseEntity<?> createTag(@RequestParam String tagName) {
-        ResponseEntity<?> tag = tagService.createTag(tagName);
-        return ResponseEntity.ok(tag);
+    public ApiResponse<Tags> createTag(@RequestParam String tagName) throws Exception {
+        return tagService.createTag(tagName);
     }
 
     @PutMapping("/update/{tagId}")
-    public ResponseEntity<?> updateTag(@PathVariable Long tagId, @RequestParam String tagName) {
-        ResponseEntity<?> updatedTag = tagService.updateTag(tagId, tagName);
-        return ResponseEntity.ok(updatedTag);
+    public ApiResponse<Tags> updateTag(@PathVariable Long tagId, @RequestParam String tagName) {
+        return tagService.updateTag(tagId, tagName);
     }
 
     @DeleteMapping("/delete/{tagId}")
-    public ResponseEntity<?> deleteTag(@PathVariable Long tagId) {
+    public ApiResponse<String> deleteTag(@PathVariable Long tagId) {
         tagService.deleteTag(tagId);
-        return ResponseEntity.ok("Tag deleted successfully");
+        return CreateApiResponse.createResponse("Tag deleted successfully",false);
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<Tags>> getAllTags() {
-        return ResponseEntity.ok(tagService.getAllTags());
+    public ApiResponse<List<Tags>> getAllTags() {
+        return CreateApiResponse.createResponse(tagService.getAllTags(),false);
     }
 }

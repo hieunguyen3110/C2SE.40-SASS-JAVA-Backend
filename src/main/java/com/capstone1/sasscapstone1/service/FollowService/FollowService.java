@@ -1,19 +1,18 @@
 package com.capstone1.sasscapstone1.service.FollowService;
 
 import com.capstone1.sasscapstone1.dto.FollowDto.FollowDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.entity.Follow;
-import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.Optional;
 
 public interface FollowService {
-    ResponseEntity<String> followUserByEmail(String email, Account account) throws Exception;
+    ApiResponse<String> followUserByEmail(String email, Account account) throws Exception;
 
-    ResponseEntity<String> unfollowUserByEmail(String email, Account account);
+    ApiResponse<String> unfollowUserByEmail(String email, Account account) throws Exception;
 
-    ResponseEntity<List<FollowDto>> getFollowers(Account currentUser);
+    ApiResponse<List<FollowDto>> getFollowers(Account currentUser) throws Exception;
 
-    ResponseEntity<List<FollowDto>> getFollowing(Account currentUser);
+    ApiResponse<List<FollowDto>> getFollowing(Account currentUser) throws Exception;
 }

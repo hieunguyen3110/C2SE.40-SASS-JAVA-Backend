@@ -4,20 +4,22 @@ import com.capstone1.sasscapstone1.dto.DocumentDto.DocumentDto;
 import com.capstone1.sasscapstone1.dto.FolderDownloadStatsDto.FolderDownloadStatsDto;
 import com.capstone1.sasscapstone1.dto.FolderDto.FolderDto;
 import com.capstone1.sasscapstone1.dto.FolderDto.FolderResponse;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.entity.Folder;
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.exception.FolderException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.Folder.FolderRepository;
 import com.capstone1.sasscapstone1.repository.History.HistoryRepository;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,11 +49,11 @@ public class FolderServiceImpl implements FolderService {
         try {
             Account managedAccount = entityManager.merge(account);
             if (managedAccount == null) {
-                throw new FolderException("Account not found");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Account not found");
             }
             Optional<?> findFolderExistOfAccount = folderRepository.findByFolderNameAndAccountId(folderName, account.getAccountId());
             if (findFolderExistOfAccount.isPresent()) {
-                throw new FolderException("Folder name is exist");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder name is exist");
             }
 
             Folder folder = new Folder();
@@ -72,7 +74,7 @@ public class FolderServiceImpl implements FolderService {
         try {
             Folder folder = entityManager.find(Folder.class, folderId);
             if (folder == null) {
-                throw new FolderException("Folder not found with id " + folderId);
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not found with id " + folderId);
             }
 
             folder.setFolderName(folderName);
@@ -101,7 +103,7 @@ public class FolderServiceImpl implements FolderService {
             if (optionalFolder.isPresent()) {
                 folderRepository.delete(optionalFolder.get());
             } else {
-                throw new FolderException("Folder not found with id " + folderId);
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not found with id " + folderId);
             }
         } catch (Exception e) {
             throw new RuntimeException("Error deleting folder: " + e.getMessage(), e);
@@ -138,7 +140,7 @@ public class FolderServiceImpl implements FolderService {
     }
 
     @Override
-    public ResponseEntity<?> getFolderById(Long accountId, Long folderId) {
+    public ApiResponse<FolderResponse> getFolderById(Long accountId, Long folderId) {
         try {
             Optional<Folder> findFolderById = folderRepository.findByFolderIdAndAccountId(folderId, accountId);
             if (findFolderById.isPresent()) {
@@ -154,24 +156,24 @@ public class FolderServiceImpl implements FolderService {
                             .build();
                     documentDtos.add(dto);
                 }
-                return ResponseEntity.status(200).body(FolderResponse.builder()
+                return CreateApiResponse.createResponse((FolderResponse.builder()
                         .authorName(getFolder.getAccount().getFirstName() + " " + getFolder.getAccount().getLastName())
                         .numberDoc(documents.getTotalElements())
                         .documents(documentDtos)
                         .folderId(getFolder.getFolderId())
                         .folderName(getFolder.getFolderName())
                         .description(getFolder.getDescription())
-                        .build());
+                        .build()),false);
             } else {
-                throw new FolderException("Folder not exist");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not exist");
             }
-        } catch (Exception e) {
-            throw new FolderException("Error fetching folder by ID: " + e.getMessage());
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Error fetching folder by ID: " + e.getMessage());
         }
     }
 
     @Override
-    public ResponseEntity<?> getFolderById(Long folderId) {
+    public ApiResponse<FolderResponse> getFolderById(Long folderId) {
         try {
             Optional<Folder> findFolderById = folderRepository.findById(folderId);
             if (findFolderById.isPresent()) {
@@ -193,7 +195,7 @@ public class FolderServiceImpl implements FolderService {
                             .build();
                     documentDtos.add(dto);
                 }
-                return ResponseEntity.status(200).body(FolderResponse.builder()
+                return CreateApiResponse.createResponse((FolderResponse.builder()
                         .accountId(getFolder.getAccount().getAccountId())
                         .authorName(getFolder.getAccount().getFirstName() + " " + getFolder.getAccount().getLastName())
                         .numberDoc(documents.getTotalElements())
@@ -201,12 +203,12 @@ public class FolderServiceImpl implements FolderService {
                         .folderId(getFolder.getFolderId())
                         .folderName(getFolder.getFolderName())
                         .description(getFolder.getDescription())
-                        .build());
+                        .build()),false);
             } else {
-                throw new FolderException("Folder not exist");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not exist");
             }
-        } catch (Exception e) {
-            throw new FolderException("Error fetching folder by ID: " + e.getMessage());
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Error fetching folder by ID: " + e.getMessage());
         }
     }
 

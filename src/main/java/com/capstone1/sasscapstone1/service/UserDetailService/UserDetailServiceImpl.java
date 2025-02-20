@@ -1,15 +1,14 @@
 package com.capstone1.sasscapstone1.service.UserDetailService;
 
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.exception.LoginException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -26,7 +25,7 @@ public class UserDetailServiceImpl implements UserDetailsService {
             }
             return findAccount.get();
         }catch (UsernameNotFoundException e){
-            throw new LoginException(400,e.getMessage());
+            throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),e.getMessage());
         }
     }
 }

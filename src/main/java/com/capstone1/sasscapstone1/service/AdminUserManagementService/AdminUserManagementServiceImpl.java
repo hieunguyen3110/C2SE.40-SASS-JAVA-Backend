@@ -3,15 +3,17 @@ package com.capstone1.sasscapstone1.service.AdminUserManagementService;
 import com.capstone1.sasscapstone1.dto.UpdateUserProfileRequestDto.UpdateUserProfileRequest;
 import com.capstone1.sasscapstone1.dto.UserProfileResponseDTO.UserProfileResponse;
 import com.capstone1.sasscapstone1.dto.UserListDto.UserListDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
 import com.capstone1.sasscapstone1.entity.Faculty;
 import com.capstone1.sasscapstone1.entity.Role;
-import com.capstone1.sasscapstone1.exception.AdminDashboardException;
-import com.capstone1.sasscapstone1.exception.UserUpdateProfileException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
 import com.capstone1.sasscapstone1.repository.AccountRole.AccountRoleRepository;
 import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import com.capstone1.sasscapstone1.service.FirebaseService.FirebaseService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -76,7 +78,7 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
     public UserProfileResponse getUserDetails(Long accountId) {
         try {
             Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new AdminDashboardException("User not found with ID: " + accountId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"User not found with ID: " + accountId));
 
             UserProfileResponse dto = new UserProfileResponse();
             dto.setFirstName(account.getFirstName());
@@ -96,8 +98,8 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
             dto.setRoles(roles);
 
             return dto;
-        } catch (AdminDashboardException e) {
-            throw new AdminDashboardException("Error fetching user details: " + e.getMessage());
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Error fetching user details: " + e.getMessage());
         } catch (Exception e) {
             throw new RuntimeException("An unexpected error occurred while fetching user details: " + e.getMessage(), e);
         }
@@ -119,15 +121,14 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
     }
 
     @Override
-    public ResponseEntity<String> approveNewUsers(List<Long> accountIds) {
+    public ApiResponse<String> approveNewUsers(List<Long> accountIds) {
         try {
             List<Account> accounts = accountRepository.findAllById(accountIds);
             accounts.forEach(account -> account.setIsActive(true));
             accountRepository.saveAll(accounts);
-            return ResponseEntity.ok("Users approved successfully.");
+            return CreateApiResponse.createResponse("Users approved successfully.",false);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Error approving users: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error approving users: " + e.getMessage());
         }
     }
 
@@ -158,12 +159,12 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
 
     @Override
     @Transactional
-    public ResponseEntity<?> adminDeleteUserProfilePicture(Long accountId) {
+    public ApiResponse<String> adminDeleteUserProfilePicture(Long accountId) {
         try {
             deleteProfilePicture(accountId);
-            return ResponseEntity.ok("Profile picture deleted successfully.");
-        } catch (UserUpdateProfileException e) {
-            throw new RuntimeException("Update failed: " + e.getMessage(), e);
+            return CreateApiResponse.createResponse("Profile picture deleted successfully.",false);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (RuntimeException e) {
             throw new RuntimeException("Unexpected error during profile update: " + e.getMessage(), e);
         } catch (Exception e) {
@@ -177,12 +178,12 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
         try {
 
             Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new UserUpdateProfileException("User not found with ID: " + accountId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"User not found with ID: " + accountId));
 
 
             String profilePictureUrl = account.getProfilePicture();
             if (profilePictureUrl == null || profilePictureUrl.isBlank()) {
-                throw new UserUpdateProfileException("No profile picture to delete.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"No profile picture to delete.");
             }
 
             firebaseService.delete(profilePictureUrl);
@@ -190,8 +191,8 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
             account.setProfilePicture(null);
             accountRepository.save(account);
 
-        } catch (UserUpdateProfileException e) {
-            throw new RuntimeException("Error deleting profile picture: " + e.getMessage(), e);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Error deleting profile picture: " + e.getMessage());
 
         } catch (Exception e) {
             throw new RuntimeException("Unexpected error while deleting profile picture: " + e.getMessage(), e);
@@ -209,7 +210,7 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
 
             if (request.getFacultyId() != null) {
                 Faculty faculty = facultyRepository.findById(request.getFacultyId())
-                        .orElseThrow(() -> new UserUpdateProfileException("Faculty not found with ID: " + request.getFacultyId()));
+                        .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Faculty not found with ID: " + request.getFacultyId()));
                 account.setFaculty(faculty);
             }
 
@@ -225,7 +226,7 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
         try {
             String originalFileName = profilePicture.getOriginalFilename();
             if (originalFileName == null || originalFileName.isBlank()) {
-                throw new UserUpdateProfileException("Invalid file name.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Invalid file name.");
             }
 
             BufferedImage bufferedImage = ImageIO.read(profilePicture.getInputStream());
@@ -235,11 +236,11 @@ public class AdminUserManagementServiceImpl implements AdminUserManagementServic
             return profilePictureUrl;
 
         } catch (IOException e) {
-            throw new UserUpdateProfileException("Error processing profile picture: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error processing profile picture: " + e.getMessage());
 
         } catch (InterruptedException | ExecutionException e) {
             Thread.currentThread().interrupt();
-            throw new UserUpdateProfileException("Error uploading profile picture: " + e.getMessage());
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error uploading profile picture: " + e.getMessage());
         }
     }
 }
