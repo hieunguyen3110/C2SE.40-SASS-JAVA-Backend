@@ -4,6 +4,7 @@ import com.capstone1.sasscapstone1.dto.AdminDocumentDto.AdminDocumentDto;
 import com.capstone1.sasscapstone1.dto.DocumentDetailDto.DocumentDetailDto;
 import com.capstone1.sasscapstone1.dto.DocumentDto.DocumentDto;
 import com.capstone1.sasscapstone1.dto.PopularDocumentDto.PopularDocumentDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.request.TrainDocumentRequest;
@@ -16,17 +17,17 @@ import java.io.IOException;
 import java.util.List;
 
 public interface DocumentService {
-    ResponseEntity<String> uploadDocument(MultipartFile file, String title, String description, String content, String type, String subjectCode, String facultyName, String folderId, Account account) throws IOException;
+    ApiResponse<String> uploadDocument(MultipartFile file, String title, String description, String content, String type, String subjectCode, String facultyName, String folderId, Account account) throws Exception;
 
     Page<DocumentDto> getAllDocuments(Pageable pageable);
 
     DocumentDetailDto getDocumentById(Long docId);
 
-    ResponseEntity<?> getDocumentByFolderId(Long folderId, int pageNum, int pageSize);
+    ApiResponse<List<DocumentDto>> getDocumentByFolderId(Long folderId, int pageNum, int pageSize);
 
     ResponseEntity<?> trainDocument(TrainDocumentRequest request) throws Exception;
 
-    ResponseEntity<?> findAllByAccount(Account account, int pageNum, int pageSum) throws Exception;
+    ApiResponse<List<DocumentDto>> findAllByAccount(Account account, int pageNum, int pageSum) throws Exception;
 
     void updateDocument(Long docId, AdminDocumentDto documentDto);
 

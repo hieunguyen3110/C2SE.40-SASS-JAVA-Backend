@@ -4,7 +4,8 @@ import com.capstone1.sasscapstone1.dto.DocumentDto.DocumentDto;
 import com.capstone1.sasscapstone1.dto.UserProfileResponseDTO.UserProfileResponse;
 import com.capstone1.sasscapstone1.entity.*;
 import com.capstone1.sasscapstone1.dto.UpdateUserProfileRequestDto.UpdateUserProfileRequest;
-import com.capstone1.sasscapstone1.exception.UserUpdateProfileException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -78,7 +79,7 @@ public class UserProfileUtils {
 
             if (request.getFacultyId() != null) {
                 Faculty faculty = facultyRepository.findById(request.getFacultyId())
-                        .orElseThrow(() -> new UserUpdateProfileException("Faculty not found with ID: " + request.getFacultyId()));
+                        .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Faculty not found with ID: " + request.getFacultyId()));
                 account.setFaculty(faculty);
             }
 

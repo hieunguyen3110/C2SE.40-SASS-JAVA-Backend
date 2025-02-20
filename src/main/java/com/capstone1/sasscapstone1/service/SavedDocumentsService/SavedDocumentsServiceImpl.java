@@ -4,8 +4,8 @@ import com.capstone1.sasscapstone1.dto.SavedDocumentsDto.SavedDocumentsDto;
 import com.capstone1.sasscapstone1.entity.Account;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.entity.SavedDocuments;
-import com.capstone1.sasscapstone1.exception.DocumentException;
-import com.capstone1.sasscapstone1.exception.SavedDocumentException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.SavedDocuments.SavedDocumentsRepository;
@@ -38,17 +38,17 @@ public class SavedDocumentsServiceImpl implements SavedDocumentsService {
         try {
             // Kiểm tra tài liệu
             Documents document = documentsRepository.findById(docId)
-                    .orElseThrow(() -> new DocumentException("Document not found with ID: " + docId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Document not found with ID: " + docId));
 
             // Kiểm tra tài liệu đã được lưu hay chưa
             Optional<SavedDocuments> existingSavedDocument = savedDocumentsRepository.findByAccount_AccountIdAndDocument_DocId(accountId, docId);
             if (existingSavedDocument.isPresent()) {
-                throw new SavedDocumentException("Document already saved.");
+                throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Document already saved.");
             }
 
             // Lấy tài khoản từ accountId
             Account account = accountRepository.findById(accountId)
-                    .orElseThrow(() -> new SavedDocumentException("Account not found with ID: " + accountId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Account not found with ID: " + accountId));
 
             // Lưu tài liệu
             SavedDocuments savedDocument = new SavedDocuments();
@@ -68,7 +68,7 @@ public class SavedDocumentsServiceImpl implements SavedDocumentsService {
             // Kiểm tra tài khoản và tài liệu đã lưu
             Optional<SavedDocuments> savedDocument = savedDocumentsRepository.findByAccount_AccountIdAndDocument_DocId(accountId, docId);
             if (savedDocument.isEmpty()) {
-                throw new SavedDocumentException("Saved document not found for the given account and document ID.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Saved document not found for the given account and document ID.");
             }
 
             // Xóa tài liệu đã lưu

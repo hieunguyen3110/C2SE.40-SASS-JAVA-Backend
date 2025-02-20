@@ -1,20 +1,13 @@
 package com.capstone1.sasscapstone1.service.HistoryService;
 
-import com.capstone1.sasscapstone1.dto.FolderDownloadStatsDto.FolderDownloadStatsDto;
-import com.capstone1.sasscapstone1.dto.PopularDocumentDto.PopularDocumentDto;
 import com.capstone1.sasscapstone1.entity.Documents;
 import com.capstone1.sasscapstone1.entity.History;
-import com.capstone1.sasscapstone1.exception.HistoryException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.History.HistoryRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +29,7 @@ public class HistoryServiceImpl implements HistoryService {
         try {
             // Kiểm tra xem tài liệu có tồn tại không
             Documents document = documentsRepository.findById(documentId)
-                    .orElseThrow(() -> new HistoryException("Document not found with ID: " + documentId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Document not found with ID: " + documentId));
 
             // Tìm bản ghi history hiện tại
             Optional<History> existingHistory = historyRepository.findByDocument_DocId(documentId);

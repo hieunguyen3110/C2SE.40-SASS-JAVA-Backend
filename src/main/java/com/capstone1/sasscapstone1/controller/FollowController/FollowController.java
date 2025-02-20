@@ -1,16 +1,14 @@
 package com.capstone1.sasscapstone1.controller.FollowController;
 
 import com.capstone1.sasscapstone1.dto.FollowDto.FollowDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Account;
-import com.capstone1.sasscapstone1.entity.Follow;
-import com.capstone1.sasscapstone1.exception.FollowException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.service.FollowService.FollowService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,46 +26,46 @@ public class FollowController {
     }
 
     @PostMapping("/follow-by-email")
-    public ResponseEntity<String> followUserByEmail(@RequestParam String email) throws Exception {
+    public ApiResponse<String> followUserByEmail(@RequestParam String email) throws Exception {
         Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
         if(!(authentication instanceof AnonymousAuthenticationToken)){
             Account account= (Account) authentication.getPrincipal();
             return followService.followUserByEmail(email,account);
         }else{
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You must be login");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     @DeleteMapping("/unfollow-by-email")
-    public ResponseEntity<String> unfollowUserByEmail(@RequestParam String email) {
+    public ApiResponse<String> unfollowUserByEmail(@RequestParam String email) throws Exception {
         Authentication authentication= SecurityContextHolder.getContext().getAuthentication();
         if(!(authentication instanceof AnonymousAuthenticationToken)){
             Account account= (Account) authentication.getPrincipal();
             return followService.unfollowUserByEmail(email,account);
         }else{
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You must be login");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     @GetMapping("/followers")
-    public ResponseEntity<List<FollowDto>> getFollowers() {
+    public ApiResponse<List<FollowDto>> getFollowers() throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof AnonymousAuthenticationToken)) {
             Account account = (Account) authentication.getPrincipal();
             return followService.getFollowers(account);
         } else {
-            throw new FollowException("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     @GetMapping("/following")
-    public ResponseEntity<List<FollowDto>> getFollowing() {
+    public ApiResponse<List<FollowDto>> getFollowing() throws Exception {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (!(authentication instanceof AnonymousAuthenticationToken)) {
             Account account = (Account) authentication.getPrincipal();
             return followService.getFollowing(account);
         } else {
-            throw new FollowException("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 }

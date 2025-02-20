@@ -1,7 +1,11 @@
 package com.capstone1.sasscapstone1.controller.SavedDocumentsController;
 
 import com.capstone1.sasscapstone1.dto.SavedDocumentsDto.SavedDocumentsDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.service.SavedDocumentsService.SavedDocumentsService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -23,46 +27,46 @@ public class SavedDocumentsController {
 
     // API lưu tài liệu
     @PostMapping("/save")
-    public ResponseEntity<String> saveDocument(@RequestParam Long docId) {
+    public ApiResponse<String> saveDocument(@RequestParam Long docId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (!(authentication instanceof AnonymousAuthenticationToken)) {
             Long accountId = getAccountIdFromAuthentication(authentication);
 
             savedDocumentsService.saveDocument(docId, accountId);
-            return ResponseEntity.ok("Document saved successfully.");
+            return CreateApiResponse.createResponse("Document saved successfully.",false);
         } else {
-            return ResponseEntity.status(401).body("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     // API hiển thị danh sách tài liệu đã lưu
     @GetMapping("/list")
-    public ResponseEntity<Page<SavedDocumentsDto>> listSavedDocuments(@RequestParam int page, @RequestParam int size) {
+    public ApiResponse<Page<SavedDocumentsDto>> listSavedDocuments(@RequestParam int page, @RequestParam int size) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (!(authentication instanceof AnonymousAuthenticationToken)) {
             Long accountId = getAccountIdFromAuthentication(authentication);
 
             Page<SavedDocumentsDto> savedDocuments = savedDocumentsService.listSavedDocuments(accountId, page, size);
-            return ResponseEntity.ok(savedDocuments);
+            return CreateApiResponse.createResponse(savedDocuments,false);
         } else {
-            return ResponseEntity.status(401).body(null);
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 
     // API xóa tài liệu đã lưu
     @DeleteMapping("/delete")
-    public ResponseEntity<String> deleteSavedDocument(@RequestParam Long docId) {
+    public ApiResponse<String> deleteSavedDocument(@RequestParam Long docId) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (!(authentication instanceof AnonymousAuthenticationToken)) {
             Long accountId = getAccountIdFromAuthentication(authentication);
 
             savedDocumentsService.deleteSavedDocument(docId, accountId);
-            return ResponseEntity.ok("Document removed successfully from saved list.");
+            return CreateApiResponse.createResponse("Document removed successfully from saved list.",false);
         } else {
-            return ResponseEntity.status(401).body("You are not authorized to perform this action.");
+            throw new ApiException(ErrorCode.FORBIDDEN.getStatusCode().value(),"You are not authorized to perform this action.");
         }
     }
 

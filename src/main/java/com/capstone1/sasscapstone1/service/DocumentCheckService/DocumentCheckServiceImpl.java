@@ -1,24 +1,19 @@
 package com.capstone1.sasscapstone1.service.DocumentCheckService;
 
-import com.capstone1.sasscapstone1.dto.ChatbotDTO.ChatbotResponse;
 import com.capstone1.sasscapstone1.dto.CheckFileResponse.CheckFileResponse;
 import com.capstone1.sasscapstone1.entity.Documents;
-import com.capstone1.sasscapstone1.exception.DocumentException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
-import com.capstone1.sasscapstone1.request.SendMessageRequest;
-import com.capstone1.sasscapstone1.service.FileService.FileService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Service
@@ -33,7 +28,7 @@ public class DocumentCheckServiceImpl implements DocumentCheckService {
         try {
             // Lấy tài liệu từ database
             Documents document = documentsRepository.findById(docId)
-                    .orElseThrow(() -> new DocumentException("Document not found with ID: " + docId));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Document not found with ID: " + docId));
             if(document.getIsCheck()){
                 throw new Exception("Tài liệu đã được check");
             }
@@ -52,8 +47,8 @@ public class DocumentCheckServiceImpl implements DocumentCheckService {
             document.setIsCheck(true);
             documentsRepository.save(document);
 
-        } catch (DocumentException e) {
-            throw new RuntimeException("Document error: " + e.getMessage(), e);
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),"Document error: " + e.getMessage());
         } catch (Exception e) {
             throw new RuntimeException("An unexpected error occurred: " + e.getMessage(), e);
         }

@@ -2,7 +2,9 @@ package com.capstone1.sasscapstone1.controller.StatsUserController;
 
 
 import com.capstone1.sasscapstone1.dto.AdminDashboardStatsDto.StatsDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.service.StatsUserService.StatsUserService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,8 +23,8 @@ public class StatsUserController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<StatsDto> getDashboardStats() {
+    public ApiResponse<StatsDto> getDashboardStats() {
         StatsDto stats = statsUserService.getDashboardStats();
-        return ResponseEntity.ok(stats);
+        return CreateApiResponse.createResponse(stats,false);
     }
 }

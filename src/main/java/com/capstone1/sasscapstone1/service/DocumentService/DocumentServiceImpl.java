@@ -3,8 +3,10 @@ package com.capstone1.sasscapstone1.service.DocumentService;
 import com.capstone1.sasscapstone1.dto.AdminDocumentDto.AdminDocumentDto;
 import com.capstone1.sasscapstone1.dto.DocumentDetailDto.DocumentDetailDto;
 import com.capstone1.sasscapstone1.dto.PopularDocumentDto.PopularDocumentDto;
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.*;
-import com.capstone1.sasscapstone1.exception.DocumentException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import com.capstone1.sasscapstone1.repository.Folder.FolderRepository;
@@ -13,6 +15,7 @@ import com.capstone1.sasscapstone1.repository.Subject.SubjectRepository;
 import com.capstone1.sasscapstone1.request.TrainDocumentRequest;
 import com.capstone1.sasscapstone1.service.FirebaseService.FirebaseService;
 import com.capstone1.sasscapstone1.service.KafkaService.KafkaService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.apache.commons.io.FilenameUtils;
@@ -69,34 +72,34 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public ResponseEntity<String> uploadDocument(MultipartFile file, String title, String description, String content, String type, String subjectCode, String facultyName, String folderId, Account account) throws IOException {
+    public ApiResponse<String> uploadDocument(MultipartFile file, String title, String description, String content, String type, String subjectCode, String facultyName, String folderId, Account account) throws Exception {
         try {
             if (file == null || title == null || title.isBlank() || subjectCode == null ) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Missing required fields: file, title, subjectName, or facultyName.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Missing required fields: file, title, subjectName, or facultyName.");
             }
 
             String originalFileName = file.getOriginalFilename();
 
             if (originalFileName == null || originalFileName.isBlank()) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid file name.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Invalid file name.");
             }
             String extension= FilenameUtils.getExtension(originalFileName);
             if (!extension.equalsIgnoreCase("pdf")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Only pdf files are accepted.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Only pdf files are accepted.");
             }
 
 
             String lowerCaseType = type.toLowerCase();
             if (!lowerCaseType.equals("trắc nghiệm") && !lowerCaseType.equals("tự luận")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document type. Only 'trắc nghiệm' and 'tự luận' are accepted.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Invalid document type. Only 'trắc nghiệm' and 'tự luận' are accepted.");
             }
             Faculty faculty=null;
             if(facultyName!=null){
                 faculty = facultyRepository.findByFacultyName(facultyName)
-                        .orElseThrow(() -> new RuntimeException("Faculty not found"));
+                        .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Faculty not found"));
             }
             Subject subject = subjectRepository.findBySubjectCode(subjectCode)
-                    .orElseThrow(() -> new RuntimeException("Subject not found"));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Subject not found"));
 
 
             Account managedAccount = entityManager.merge(account);
@@ -107,13 +110,13 @@ public class DocumentServiceImpl implements DocumentService {
                 filePath = fileUploadFuture.get();
             } catch (InterruptedException | ExecutionException e) {
                 Thread.currentThread().interrupt();
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error uploading file to Firebase: " + e.getMessage());
+                throw new ApiException(ErrorCode.INTERNAL_SERVER_ERROR.getStatusCode().value(),"Error uploading file to Firebase: " + e.getMessage());
             }
 
             Folder folder = null;
             if (folderId != null) {
                 folder = folderRepository.findByFolderIdAndAccountId(Long.parseLong(folderId), managedAccount.getAccountId())
-                        .orElseThrow(() -> new RuntimeException("Folder not found or does not belong to this user."));
+                        .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Folder not found or does not belong to this user."));
             }
 
             // Lưu tài liệu vào cơ sở dữ liệu
@@ -132,9 +135,9 @@ public class DocumentServiceImpl implements DocumentService {
             document.setIsActive(false);
             documentsRepository.save(document);
 
-            return ResponseEntity.ok("Document uploaded successfully! ID: " + document.getDocId() + ", URL: " + filePath);
+            return CreateApiResponse.createResponse("Document uploaded successfully! ID: " + document.getDocId() + ", URL: " + filePath,true);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error saving document: " + e.getMessage());
+            throw new Exception(e.getMessage());
         }
     }
 
@@ -149,14 +152,14 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     @Override
-    public ResponseEntity<?> getDocumentByFolderId(Long folderId, int pageNum, int pageSize) {
+    public ApiResponse<List<DocumentDto>> getDocumentByFolderId(Long folderId, int pageNum, int pageSize) {
         try {
             Pageable pageable = PageRequest.of(pageNum, pageSize);
             Page<Documents> documentsPage = documentsRepository.findByFolder_FolderIdOrderByCreatedAtDesc(folderId, pageable);
             List<DocumentDto> documentDtos = documentsPage.map(this::mapToDocumentDto).toList();
-            return ResponseEntity.ok(documentDtos);
+            return CreateApiResponse.createResponse(documentDtos,false);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching documents by folder ID: " + e.getMessage());
+            throw new ApiException(ErrorCode.INTERNAL_SERVER_ERROR.getStatusCode().value(),"Error fetching documents by folder ID: " + e.getMessage());
         }
     }
 
@@ -188,19 +191,19 @@ public class DocumentServiceImpl implements DocumentService {
             }
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            throw new DocumentException("Error during document training.");
+            throw new ApiException(ErrorCode.BAD_GATEWAY.getStatusCode().value(),"Error during document training.");
         }// Logic for training document...
     }
 
     @Override
-    public ResponseEntity<?> findAllByAccount(Account account, int pageNum, int pageSize) {
+    public ApiResponse<List<DocumentDto>> findAllByAccount(Account account, int pageNum, int pageSize) throws Exception {
         try {
             Pageable pageable = PageRequest.of(pageNum, pageSize);
             Page<Documents> documentsPage = documentsRepository.findAllByAccountAndIsActiveIsTrue(account, pageable);
             List<DocumentDto> documentDtos = documentsPage.map(this::mapToDocumentDto).toList();
-            return ResponseEntity.ok(documentDtos);
+            return CreateApiResponse.createResponse(documentDtos,false);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error fetching documents by account: " + e.getMessage());
+            throw new Exception("Error fetching documents by account: " + e.getMessage());
         }
     }
 

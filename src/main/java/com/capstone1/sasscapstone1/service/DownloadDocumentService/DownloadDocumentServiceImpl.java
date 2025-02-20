@@ -1,19 +1,14 @@
 package com.capstone1.sasscapstone1.service.DownloadDocumentService;
 
+import com.capstone1.sasscapstone1.dto.response.ApiResponse;
 import com.capstone1.sasscapstone1.entity.Documents;
-import com.capstone1.sasscapstone1.entity.History;
-import com.capstone1.sasscapstone1.exception.DownloadDocumentException;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
-import com.capstone1.sasscapstone1.repository.History.HistoryRepository;
 import com.capstone1.sasscapstone1.service.HistoryService.HistoryService;
+import com.capstone1.sasscapstone1.util.CreateApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.io.IOException;
-import java.util.Optional;
 
 @Service
 public class DownloadDocumentServiceImpl implements DownloadDocumentService {
@@ -28,11 +23,11 @@ public class DownloadDocumentServiceImpl implements DownloadDocumentService {
     }
 
     @Override
-    public ResponseEntity<String> downloadDocument(Long documentId, String username) {
+    public ApiResponse<String> downloadDocument(Long documentId, String username) throws Exception {
         try {
             // Kiểm tra tài liệu có tồn tại không
             Documents document = documentsRepository.findById(documentId)
-                    .orElseThrow(() -> new DownloadDocumentException("Document not found"));
+                    .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Document not found"));
 
             historyService.trackDownload(documentId, username);
 
@@ -40,14 +35,14 @@ public class DownloadDocumentServiceImpl implements DownloadDocumentService {
             String filePath = document.getFilePath();
 
             if (filePath != null && !filePath.isEmpty()) {
-                return ResponseEntity.ok(filePath);
+                return CreateApiResponse.createResponse(filePath,false);
             } else {
-                throw new DownloadDocumentException("File path is invalid or not found.");
+                throw new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"File path is invalid or not found.");
             }
-        } catch (DownloadDocumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Error: " + e.getMessage());
+        } catch (ApiException e) {
+            throw new ApiException(e.getCode(),e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("An unexpected error occurred: " + e.getMessage());
+            throw new Exception("An unexpected error occurred: " + e.getMessage());
         }
     }
 }

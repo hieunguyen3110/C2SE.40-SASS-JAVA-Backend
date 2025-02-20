@@ -3,15 +3,14 @@ package com.capstone1.sasscapstone1.service.DocumentManagementService;
 import com.capstone1.sasscapstone1.dto.AdminDocumentDto.AdminDocumentDto;
 import com.capstone1.sasscapstone1.dto.DocumentListDto.DocumentListDto;
 import com.capstone1.sasscapstone1.entity.*;
-import com.capstone1.sasscapstone1.exception.DocumentException;
-import com.capstone1.sasscapstone1.repository.Account.AccountRepository;
+import com.capstone1.sasscapstone1.enums.ErrorCode;
+import com.capstone1.sasscapstone1.exception.ApiException;
 import com.capstone1.sasscapstone1.repository.Documents.DocumentsRepository;
 import com.capstone1.sasscapstone1.repository.Faculty.FacultyRepository;
 import com.capstone1.sasscapstone1.repository.Folder.FolderRepository;
 import com.capstone1.sasscapstone1.repository.Subject.SubjectRepository;
 import com.capstone1.sasscapstone1.service.KafkaService.KafkaService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -70,7 +69,7 @@ public class DocumentManagementServiceImpl implements DocumentManagementService 
             try {
                 // Lấy tài liệu từ database
                 Documents document = documentsRepository.findByDocIdAndIsCheckTrue(docId)
-                        .orElseThrow(() -> new DocumentException("Document not found with ID: " + docId));
+                        .orElseThrow(() -> new ApiException(ErrorCode.BAD_REQUEST.getStatusCode().value(),"Document not found with ID: " + docId));
 
                 // Cập nhật tài liệu với tên admin
                 document.setApprovedBy(adminApprove);
@@ -79,9 +78,7 @@ public class DocumentManagementServiceImpl implements DocumentManagementService 
                 // Lưu tài liệu đã duyệt
                 documentsRepository.save(document);
                 kafkaService.sendNotificationFromUserFollower(document.getFileName(),document.getAccount());
-            } catch (DocumentException e) {
-                throw new RuntimeException("Document error with ID: " + docId + ". " + e.getMessage(), e);
-            } catch (Exception e) {
+            }catch (Exception e) {
                 throw new RuntimeException("An unexpected error occurred with document ID: " + docId + ". " + e.getMessage(), e);
             }
         }

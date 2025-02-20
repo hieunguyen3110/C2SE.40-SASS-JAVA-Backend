@@ -1,5 +1,6 @@
 package com.capstone1.sasscapstone1.filter;
 
+import com.capstone1.sasscapstone1.enums.ErrorCode;
 import com.capstone1.sasscapstone1.service.JwtService.JwtService;
 import com.capstone1.sasscapstone1.service.UserDetailService.UserDetailServiceImpl;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -44,13 +45,15 @@ public class JWTAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             }
         }catch(ExpiredJwtException e){
-            response.setStatus(403);
-            response.getWriter().write("token expired");
+//            response.setStatus(403);
+//            response.getWriter().write("token expired");
+            response.sendError(ErrorCode.FORBIDDEN.getStatusCode().value(),"token expired");
             return;
         }
         catch (Exception e){
-            response.setStatus(401);
-            response.getWriter().write("token isn't valid");
+//            response.setStatus(401);
+//            response.getWriter().write("token isn't valid");
+            response.sendError(ErrorCode.UNAUTHORIZED.getStatusCode().value(),"token isn't valid");
             return;
         }
         filterChain.doFilter(request,response);
